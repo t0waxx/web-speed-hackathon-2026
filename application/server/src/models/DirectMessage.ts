@@ -73,6 +73,7 @@ export function initDirectMessage(sequelize: Sequelize) {
   );
 
   DirectMessage.addHook("afterSave", "onDmSaved", async (message) => {
+    const hookStart = Date.now();
     const directMessage = await DirectMessage.findByPk(message.get().id);
     const conversation = await DirectMessageConversation.findByPk(directMessage?.conversationId);
 
@@ -85,6 +86,7 @@ export function initDirectMessage(sequelize: Sequelize) {
         ? conversation.memberId
         : conversation.initiatorId;
 
+    const countStart = Date.now();
     const unreadCount = await DirectMessage.count({
       distinct: true,
       where: {
@@ -101,6 +103,7 @@ export function initDirectMessage(sequelize: Sequelize) {
         },
       ],
     });
+    console.log(`[afterSave] msgId=${message.get().id?.slice(0,8)} countQuery=${Date.now()-countStart}ms totalHook=${Date.now()-hookStart}ms unread=${unreadCount}`);
 
     eventhub.emit(`dm:conversation/${conversation.id}:message`, directMessage);
     eventhub.emit(`dm:unread/${receiverId}`, { unreadCount });

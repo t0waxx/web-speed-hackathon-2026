@@ -178,8 +178,11 @@ directMessageRouter.get("/dm/:conversationId", async (req, res) => {
 
 directMessageRouter.ws("/dm/:conversationId", async (req, _res) => {
   if (req.session.userId === undefined) {
+    console.log(`[WS] /dm/:conversationId UNAUTHORIZED`);
     throw new httpErrors.Unauthorized();
   }
+
+  console.log(`[WS] /dm/${req.params.conversationId} connected user=${req.session.userId?.slice(0,8)}`);
 
   const conversation = await DirectMessageConversation.findOne({
     where: {
@@ -188,6 +191,7 @@ directMessageRouter.ws("/dm/:conversationId", async (req, _res) => {
     },
   });
   if (conversation == null) {
+    console.log(`[WS] /dm/${req.params.conversationId} conversation NOT FOUND`);
     throw new httpErrors.NotFound();
   }
 
@@ -196,11 +200,15 @@ directMessageRouter.ws("/dm/:conversationId", async (req, _res) => {
       ? conversation.initiatorId
       : conversation.memberId;
 
+  console.log(`[WS] /dm/${conversation.id?.slice(0,8)} registered events for user=${req.session.userId?.slice(0,8)} peer=${peerId?.slice(0,8)}`);
+
   const handleMessageUpdated = (payload: unknown) => {
+    console.log(`[WS] sending dm:conversation:message to user=${req.session.userId?.slice(0,8)}`);
     req.ws.send(JSON.stringify({ type: "dm:conversation:message", payload }));
   };
   eventhub.on(`dm:conversation/${conversation.id}:message`, handleMessageUpdated);
   req.ws.on("close", () => {
+    console.log(`[WS] /dm/${conversation.id?.slice(0,8)} closed for user=${req.session.userId?.slice(0,8)}`);
     eventhub.off(`dm:conversation/${conversation.id}:message`, handleMessageUpdated);
   });
 
@@ -263,13 +271,15 @@ directMessageRouter.post("/dm/:conversationId/read", async (req, res) => {
       ? conversation.initiatorId
       : conversation.memberId;
 
-  await DirectMessage.update(
+  const readStart = Date.now();
+  const [affectedCount] = await DirectMessage.update(
     { isRead: true },
     {
       where: { conversationId: conversation.id, senderId: peerId, isRead: false },
       individualHooks: true,
     },
   );
+  console.log(`[sendRead] convId=${conversation.id?.slice(0,8)} affected=${affectedCount} elapsed=${Date.now()-readStart}ms`);
 
   return res.status(200).type("application/json").send({});
 });
