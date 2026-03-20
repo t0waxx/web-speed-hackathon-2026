@@ -1,6 +1,6 @@
 import { Router } from "express";
 import httpErrors from "http-errors";
-import { col, where, Op } from "sequelize";
+import { Op, QueryTypes, literal } from "sequelize";
 
 import { eventhub } from "@web-speed-hackathon-2026/server/src/eventhub";
 import {
@@ -16,20 +16,73 @@ directMessageRouter.get("/dm", async (req, res) => {
     throw new httpErrors.Unauthorized();
   }
 
+  // メッセージが存在する会話のみ取得（messages を全件ロードせずに EXISTS で絞り込む）
   const conversations = await DirectMessageConversation.findAll({
     where: {
       [Op.and]: [
         { [Op.or]: [{ initiatorId: req.session.userId }, { memberId: req.session.userId }] },
-        where(col("messages.id"), { [Op.not]: null }),
+        literal(
+          `EXISTS (SELECT 1 FROM "DirectMessages" WHERE "conversationId" = "DirectMessageConversation"."id")`,
+        ),
       ],
     },
-    order: [[col("messages.createdAt"), "DESC"]],
   });
 
-  const sorted = conversations.map((c) => ({
-    ...c.toJSON(),
-    messages: c.messages?.reverse(),
-  }));
+  if (conversations.length === 0) {
+    return res.status(200).type("application/json").send([]);
+  }
+
+  const conversationIds = conversations.map((c) => c.id);
+
+  // 各会話の最新メッセージIDを1クエリで取得
+  const rawLatest = await DirectMessage.sequelize!.query<{ id: string }>(
+    `SELECT dm.id
+     FROM "DirectMessages" dm
+     INNER JOIN (
+       SELECT "conversationId", MAX("createdAt") AS "maxDate"
+       FROM "DirectMessages"
+       WHERE "conversationId" IN (${conversationIds.map(() => "?").join(",")})
+       GROUP BY "conversationId"
+     ) AS latest ON dm."conversationId" = latest."conversationId"
+       AND dm."createdAt" = latest."maxDate"`,
+    { replacements: conversationIds, type: QueryTypes.SELECT },
+  );
+
+  const latestMessageIds = rawLatest.map((r) => r.id);
+
+  // sender情報付きで最新メッセージを取得
+  const latestMessages = await DirectMessage.findAll({
+    where: { id: { [Op.in]: latestMessageIds } },
+    include: [{ association: "sender", include: [{ association: "profileImage" }] }],
+  });
+
+  // 未読メッセージがある会話IDを一括取得
+  const unreadDms = await DirectMessage.findAll({
+    attributes: ["conversationId"],
+    where: {
+      conversationId: { [Op.in]: conversationIds },
+      senderId: { [Op.ne]: req.session.userId },
+      isRead: false,
+    },
+    group: ["conversationId"],
+  });
+  const unreadConversationIds = new Set(unreadDms.map((dm) => dm.conversationId));
+
+  // 最新メッセージ順にソートしてレスポンスを組み立てる
+  const latestMessageByConversation = new Map(latestMessages.map((m) => [m.conversationId, m]));
+
+  const sorted = conversations
+    .filter((c) => latestMessageByConversation.has(c.id))
+    .sort((a, b) => {
+      const aTime = new Date(latestMessageByConversation.get(a.id)!.createdAt).getTime();
+      const bTime = new Date(latestMessageByConversation.get(b.id)!.createdAt).getTime();
+      return bTime - aTime;
+    })
+    .map((c) => ({
+      ...c.toJSON(),
+      latestMessage: latestMessageByConversation.get(c.id)?.toJSON() ?? null,
+      hasUnread: unreadConversationIds.has(c.id),
+    }));
 
   return res.status(200).type("application/json").send(sorted);
 });
@@ -100,11 +153,21 @@ directMessageRouter.get("/dm/:conversationId", async (req, res) => {
     throw new httpErrors.Unauthorized();
   }
 
+  // DM詳細: 全メッセージを昇順で明示的に取得（separate: true で ORDER BY が確実に適用される）
   const conversation = await DirectMessageConversation.findOne({
     where: {
       id: req.params.conversationId,
       [Op.or]: [{ initiatorId: req.session.userId }, { memberId: req.session.userId }],
     },
+    include: [
+      {
+        association: "messages",
+        include: [{ association: "sender", include: [{ association: "profileImage" }] }],
+        required: false,
+        separate: true,
+        order: [["createdAt", "ASC"]],
+      },
+    ],
   });
   if (conversation === null) {
     throw new httpErrors.NotFound();

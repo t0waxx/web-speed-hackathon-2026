@@ -69,25 +69,22 @@ export const DirectMessageListPage = ({ activeUser, newDmModalId }: Props) => {
       ) : (
         <ul data-testid="dm-list">
           {conversations.map((conversation) => {
-            const { messages } = conversation;
             const peer =
               conversation.initiator.id !== activeUser.id
                 ? conversation.initiator
                 : conversation.member;
 
-            const lastMessage = messages.at(-1);
-            const hasUnread = messages
-              .filter((m) => m.sender.id === peer.id)
-              .some((m) => !m.isRead);
+            const lastMessage = conversation.latestMessage;
+            const hasUnread = conversation.hasUnread;
 
             return (
               <li className="grid" key={conversation.id}>
                 <Link className="hover:bg-cax-surface-subtle px-4" to={`/dm/${conversation.id}`}>
                   <div className="border-cax-border flex gap-4 border-b px-4 pt-2 pb-4">
                     <img
-                      alt={peer.profileImage.alt}
+                      alt={peer.profileImage?.alt}
                       className="w-12 shrink-0 self-start rounded-full"
-                      src={getProfileImagePath(peer.profileImage.id)}
+                      src={getProfileImagePath(peer.profileImage?.id)}
                     />
                     <div className="flex flex-1 flex-col">
                       <div className="flex items-center justify-between">

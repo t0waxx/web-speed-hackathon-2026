@@ -18,8 +18,8 @@ export const CommentItem = ({ comment }: Props) => {
             to={`/users/${comment.user.username}`}
           >
             <img
-              alt={comment.user.profileImage.alt}
-              src={getProfileImagePath(comment.user.profileImage.id)}
+              alt={comment.user.profileImage?.alt}
+              src={getProfileImagePath(comment.user.profileImage?.id)}
             />
           </Link>
         </div>

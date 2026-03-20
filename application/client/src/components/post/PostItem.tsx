@@ -22,8 +22,8 @@ export const PostItem = ({ post }: Props) => {
               to={`/users/${post.user.username}`}
             >
               <img
-                alt={post.user.profileImage.alt}
-                src={getProfileImagePath(post.user.profileImage.id)}
+                alt={post.user.profileImage?.alt}
+                src={getProfileImagePath(post.user.profileImage?.id)}
               />
             </Link>
           </div>

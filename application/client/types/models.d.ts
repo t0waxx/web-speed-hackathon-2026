@@ -61,7 +61,9 @@ declare namespace Models {
     id: string;
     initiator: Models.User;
     member: Models.User;
-    messages: Array<Models.DirectMessage>;
+    messages: Array<Models.DirectMessage>; // DM詳細ページ用
+    latestMessage: Models.DirectMessage | null; // DM一覧ページ用
+    hasUnread: boolean; // DM一覧ページ用
   }
 
   interface ChatMessage {
