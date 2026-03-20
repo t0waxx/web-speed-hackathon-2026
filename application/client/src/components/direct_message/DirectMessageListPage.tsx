@@ -69,16 +69,14 @@ export const DirectMessageListPage = ({ activeUser, newDmModalId }: Props) => {
       ) : (
         <ul data-testid="dm-list">
           {conversations.map((conversation) => {
-            const { messages } = conversation;
             const peer =
               conversation.initiator.id !== activeUser.id
                 ? conversation.initiator
                 : conversation.member;
 
-            const lastMessage = messages.at(-1);
-            const hasUnread = messages
-              .filter((m) => m.sender.id === peer.id)
-              .some((m) => !m.isRead);
+            // 一覧はサーバー集約の latestMessage / hasUnread を使う（会話ごとの全メッセージ走査を避ける）
+            const lastMessage = conversation.latestMessage;
+            const hasUnread = Boolean(conversation.hasUnread);
 
             return (
               <li className="grid" key={conversation.id}>
@@ -87,6 +85,7 @@ export const DirectMessageListPage = ({ activeUser, newDmModalId }: Props) => {
                     <img
                       alt={peer.profileImage.alt}
                       className="w-12 shrink-0 self-start rounded-full"
+                      loading="lazy"
                       src={getProfileImagePath(peer.profileImage.id)}
                     />
                     <div className="flex flex-1 flex-col">
