@@ -496,6 +496,184 @@ PRAGMA journal_mode=WAL;
 
 ---
 
+---
+
+## 技術制約なし：導入を検討できる技術・アプローチ
+
+### 🔴 HIGH インパクト
+
+#### A. GIF → MP4 変換（シード生成時に処理）
+
+**現状の問題**
+- GIF ファイルは最大 25MB、`PausableMovie.tsx` がフルバイナリをダウンロードし gifler でフレームを全デコード → canvas 描画
+- CPU/メモリ負荷が高く、ハードウェアデコードも効かない
+
+**対策: シード生成時に FFmpeg で MP4 変換**
+
+サーバーはすでに `@ffmpeg/ffmpeg` を持っており、シード生成スクリプト（Node.js 側）で変換できる。
+```bash
+ffmpeg -i input.gif -movflags faststart -pix_fmt yuv420p output.mp4
+```
+- GIF 25MB → MP4 1-2MB（ブラウザのハードウェアデコード対応）
+- `<PausableMovie>` を `<video autoPlay loop muted playsInline>` に置き換えるだけ
+- `gifler`, `omggif` をバンドルから削除できる（バンドルサイズ削減）
+
+---
+
+#### B. 画像メタデータをサーバー側で保持（EXIF クライアント解析をなくす）
+
+**現状の問題**（`CoveredImage.tsx`）
+- 画像をフルバイナリでダウンロード（最大数MB）
+- クライアントで `image-size` + `piexifjs` で幅・高さ・ALTテキストを解析
+- 1枚ごとにこの処理 → タイムライン30枚で30回実行
+
+**対策**
+- 画像アップロード時にサーバー側で幅・高さ・ALTテキストを抽出して DB に保存
+- API レスポンスに含める（`image.width`, `image.height`, `image.alt`）
+- クライアントは `<img src={src} />` + CSS `object-fit: cover` のみ
+- `image-size`, `piexifjs`, `useFetch` を `CoveredImage.tsx` から排除できる
+
+---
+
+#### C. 音声波形をサーバー側で事前計算
+
+**現状の問題**（`SoundWaveSVG.tsx`）
+- レンダリングのたびに `AudioContext` を生成、音声データを全デコード
+- lodash でサンプリング・平均化処理（CPU 負荷大）
+
+**対策**
+- 音声アップロード時に 100 点の peaks データを計算して DB に保存
+- クライアントは peaks 配列を API から受け取り SVG を描画するだけ
+- `AudioContext`, `lodash`, `standardized-audio-context` が不要になる
+
+---
+
+#### D. Nginx / Caddy をリバースプロキシとして追加
+
+**現状の問題**
+- `Connection: close` が全レスポンスに設定されており HTTP keep-alive が無効
+- Brotli 圧縮なし（Brotli は gzip より 15-25% 小さい）
+- HTTP/1.1 のみ（HTTP/2 なし → 並列リクエストに制限あり）
+- 静的アセットにキャッシュヘッダーなし
+
+**Nginx 設定で解決できること**
+```nginx
+gzip on;
+brotli on;                              # ngx_brotli モジュール
+http2 on;                               # HTTP/2
+location ~* \.(js|css|woff2|jpg|webp)$ {
+  expires 1y;
+  add_header Cache-Control "public, immutable";
+}
+```
+
+Dockerfile に Nginx を追加し Express をリバースプロキシ経由で配信するだけ。
+
+---
+
+#### E. React.lazy + Suspense による重いルートの遅延読み込み
+
+**現状の問題**
+- Crok（Web LLM）、投稿モーダル（FFmpeg + ImageMagick）が全員のバンドルに含まれる
+- Web LLM (`@mlc-ai/web-llm`) は単体で数十MB の WASM + モデルファイル
+
+**対策**
+```tsx
+// ルートレベルで遅延読み込み
+const CrokContainer  = React.lazy(() => import("./containers/CrokContainer"));
+const NewPostModal   = React.lazy(() => import("./containers/NewPostModalContainer"));
+```
+- タイムラインの初期表示に Crok/FFmpeg が不要になる
+- TBT（Total Blocking Time）が大幅改善
+
+---
+
+### 🟡 MEDIUM インパクト
+
+#### F. Service Worker によるキャッシュ（Workbox）
+
+- 静的アセット（JS/CSS/フォント）を Service Worker でキャッシュ
+- リピートビジット時の Lighthouse スコアが大幅向上
+- `workbox-webpack-plugin` で Webpack と統合可能
+
+---
+
+#### G. 画像を WebP / AVIF に変換（`sharp` で一括）
+
+```bash
+# シード生成後に sharp で変換
+for img in public/images/*.jpg; do
+  sharp "$img" -o "${img%.jpg}.webp"
+done
+```
+- JPEG → WebP: 平均 30-50% 削減
+- サーバー側で Accept ヘッダーを見て WebP/AVIF を返す、または `<picture>` を使う
+
+---
+
+#### H. DB インデックス追加
+
+検索・タイムライン取得で使われるカラムにインデックスがない場合、フルスキャンが発生する。
+
+```sql
+CREATE INDEX idx_posts_created_at ON Posts(createdAt DESC);
+CREATE INDEX idx_posts_user_id ON Posts(userId);
+CREATE INDEX idx_posts_text ON Posts(text);  -- FTS5 の方が高速
+```
+
+特に全文検索は SQLite の FTS5 (Full-Text Search) を使うと劇的に改善する。
+
+---
+
+#### I. `moment` → `Intl.DateTimeFormat`、`lodash` → ネイティブメソッド
+
+**`TimelineItem.tsx`**
+```tsx
+// Before
+moment(post.createdAt).locale("ja").format("LL")
+// After（バンドルへの追加ゼロ）
+new Intl.DateTimeFormat("ja", { dateStyle: "long" }).format(new Date(post.createdAt))
+```
+
+**`SoundWaveSVG.tsx`**（波形の事前計算が難しい場合でも）
+```ts
+// lodash.map, lodash.chunk, lodash.mean → ネイティブ Array メソッドに置換
+```
+
+moment (~67KB min+gz) + lodash (~70KB min+gz) = 137KB 削減
+
+---
+
+#### J. Web Worker で重い計算をオフロード
+
+音声波形・画像サイズ解析など重い処理をメイン thread から切り離す。
+
+```ts
+// SoundWaveSVG: AudioContext のデコード処理を Worker に移動
+const worker = new Worker(new URL("./waveform.worker.ts", import.meta.url));
+worker.postMessage(soundData, [soundData]);
+```
+
+TBT（メインスレッドのブロック時間）が改善される。
+
+---
+
+### 優先度まとめ（技術制約なし追加分）
+
+| 対策 | 実装難度 | Lighthouse への影響 |
+|------|---------|-------------------|
+| GIF → MP4 変換（シード時） | 中 | LCP・TBT・転送量 |
+| 画像メタデータをサーバーで保持 | 中 | LCP・TBT |
+| Nginx 追加（HTTP/2・Brotli・キャッシュ） | 低 | 全スコア |
+| React.lazy で Crok/投稿モーダルを分割 | 低 | TBT・TTI |
+| 音声波形をサーバー側で事前計算 | 中 | TBT |
+| WebP/AVIF 変換 | 低 | LCP・転送量 |
+| Service Worker (Workbox) | 低 | リピート訪問スコア |
+| SQLite FTS5 で検索高速化 | 低 | サーバー応答時間 |
+| moment / lodash を削除 | 低 | TBT・バンドルサイズ |
+
+---
+
 ## 優先対応順（費用対効果）
 
 | 優先度 | 対応内容 | 期待効果 |
