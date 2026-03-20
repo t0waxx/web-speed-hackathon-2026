@@ -2,7 +2,18 @@ import { gzip } from "pako";
 
 async function checkOk(res: Response): Promise<Response> {
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
+    const error = new Error(`HTTP ${res.status}`) as Error & {
+      responseJSON?: unknown;
+      status?: number;
+    };
+    error.status = res.status;
+    try {
+      // jQuery.ajax のエラーオブジェクト互換（AuthModalContainer 側で参照している）
+      error.responseJSON = await res.clone().json();
+    } catch {
+      // JSON でない失敗レスポンスは従来どおり汎用エラーとして扱う
+    }
+    throw error;
   }
   return res;
 }

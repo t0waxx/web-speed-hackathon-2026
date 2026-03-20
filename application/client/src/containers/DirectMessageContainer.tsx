@@ -44,7 +44,17 @@ export const DirectMessageContainer = ({ activeUser, authModalId }: Props) => {
       const data = await fetchJSON<Models.DirectMessageConversation>(
         `/api/v1/dm/${conversationId}`,
       );
-      setConversation(data);
+      const sortedMessages = [...data.messages].sort((a, b) => {
+        const timeDiff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        if (timeDiff !== 0) {
+          return timeDiff;
+        }
+        return a.id.localeCompare(b.id);
+      });
+      setConversation({
+        ...data,
+        messages: sortedMessages,
+      });
       setConversationError(null);
     } catch (error) {
       setConversation(null);
@@ -68,7 +78,7 @@ export const DirectMessageContainer = ({ activeUser, authModalId }: Props) => {
         await sendJSON(`/api/v1/dm/${conversationId}/messages`, {
           body: params.body,
         });
-        loadConversation();
+        await loadConversation();
       } finally {
         setIsSubmitting(false);
       }
@@ -102,6 +112,14 @@ export const DirectMessageContainer = ({ activeUser, authModalId }: Props) => {
       }, TYPING_INDICATOR_DURATION_MS);
     }
   });
+
+  useEffect(() => {
+    return () => {
+      if (peerTypingTimeoutRef.current !== null) {
+        clearTimeout(peerTypingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   if (activeUser === null) {
     return (
