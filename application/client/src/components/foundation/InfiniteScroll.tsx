@@ -30,7 +30,7 @@ export const InfiniteScroll = ({ children, fetchMore, items }: Props) => {
   return (
     <>
       {children}
-      <div ref={sentinelRef} />
+      <div ref={sentinelRef} style={{ height: "1px" }} />
     </>
   );
 };
