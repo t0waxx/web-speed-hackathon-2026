@@ -84,8 +84,9 @@ const config = {
       ],
     }),
     new HtmlWebpackPlugin({
-      inject: false,
+      inject: "body",
       template: path.resolve(SRC_PATH, "./index.html"),
+      scriptLoading: "defer",
     }),
   ],
   resolve: {
