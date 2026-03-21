@@ -1,0 +1,61 @@
+# Cloud Build / gcloud builds submit がアップロードする前に除外する（.gitignore は自動では効かない）
+# Dockerfile は ./application だけ使うので、それ以外は積極的に落とす
+
+# Git
+.git/
+.gitignore
+.gcloudignore
+
+# 依存関係（コンテナ内で bun install するので送る必要なし）
+**/node_modules/
+
+# ビルド成果物（イメージ内で再ビルド）
+**/dist/
+.next/
+out/
+
+# 起動時に DATABASE_PATH へコピーするため database.sqlite はイメージに含める
+# ローカルアップロード・シード
+application/server/upload/
+application/upload/
+application/server/seeds/
+
+# Terraform（イメージビルドに不要・.terraform はプロバイダで数百MB級になりがち）
+terraform/
+
+# 採点ツール・ドキュメント（ビルドに不要）
+scoring-tool/
+docs/
+
+# テスト・レポート
+test-results/
+application/e2e/test-results/
+playwright-report/
+coverage/
+**/.nyc_output/
+
+# キャッシュ・ツール用
+.cache/
+.parcel-cache/
+**/.rpt2_cache*/
+**/.rts2_cache*/
+*.tsbuildinfo
+
+# エディタ・ローカル設定
+.cursor/
+.claude/
+.vscode/
+.idea/
+
+# ログ・OS
+*.log
+.DS_Store
+Thumbs.db
+
+# よくある肥大化ファイル（リポジトリに置いている場合のみ効く）
+*.zip
+*.tar
+*.tar.gz
+*.webm
+*.mov
+# ※ application/public/movies/*.mp4 は事前変換済みアセットなので除外しない
