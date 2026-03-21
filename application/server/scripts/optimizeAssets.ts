@@ -4,6 +4,7 @@
  *
  * 事前条件: ffmpeg がインストール済み (brew install ffmpeg)
  * - GIF → MP4 変換（原本 .gif はそのまま保持）
+ * - MP4 先頭フレーム → WebP サムネイル抽出
  * - JPEG 圧縮（最大幅・品質を落として軽量化）
  * - プロフィール画像を WebP 化（幅・品質は src/constants/imageOptimization.ts と一致）
  *
@@ -19,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 
 import { MAX_ICON_WIDTH, WEBP_ICON_QUALITY } from "../src/constants/imageOptimization";
+import { MAX_MOVIE_WIDTH } from "../src/constants/movieOptimization";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, "../../public");
@@ -28,8 +30,6 @@ const PROFILES_DIR = path.join(IMAGES_DIR, "profiles");
 
 const MAX_IMAGE_WIDTH = 1200;
 const JPEG_QUALITY = 75;
-const MAX_GIF_WIDTH = 480;
-
 const FORCE = process.argv.includes("--force");
 
 function fmtKB(bytes: number) {
@@ -60,7 +60,7 @@ for (const file of gifFiles) {
     "ffmpeg",
     [
       "-i", gifPath,
-      "-vf", `scale=${MAX_GIF_WIDTH}:-2:flags=lanczos,format=yuv420p`,
+      "-vf", `scale=${MAX_MOVIE_WIDTH}:-2:flags=lanczos,format=yuv420p`,
       "-c:v", "libx264",
       "-crf", "28",
       "-preset", "fast",
@@ -75,6 +75,40 @@ for (const file of gifFiles) {
   const mp4Stat = await fs.stat(mp4Path);
   const ratio = ((1 - mp4Stat.size / gifStat.size) * 100).toFixed(0);
   console.log(`${path.basename(mp4Path)} (${fmtKB(mp4Stat.size)}, -${ratio}%)`);
+}
+
+// ─── MP4 先頭フレーム → WebP サムネイル ───────────────────────────────────────
+
+console.log("\n=== MP4 先頭フレーム → WebP サムネイル ===");
+const mp4Files = (await fs.readdir(MOVIES_DIR)).filter((f) => f.endsWith(".mp4"));
+
+for (const file of mp4Files) {
+  const mp4Path = path.join(MOVIES_DIR, file);
+  const webpPath = mp4Path.replace(/\.mp4$/, ".webp");
+
+  if (!FORCE) {
+    try {
+      await fs.access(webpPath);
+      console.log(`  skip (exists): ${path.basename(webpPath)}`);
+      continue;
+    } catch {}
+  }
+
+  process.stdout.write(`  ${file} → `);
+  execFileSync(
+    "ffmpeg",
+    [
+      "-i", mp4Path,
+      "-vf", `select=eq(n\\,0),scale=${MAX_MOVIE_WIDTH}:-2:flags=lanczos`,
+      "-frames:v", "1",
+      "-y",
+      webpPath,
+    ],
+    { stdio: "pipe" },
+  );
+
+  const webpStat = await fs.stat(webpPath);
+  console.log(`${path.basename(webpPath)} (${fmtKB(webpStat.size)})`);
 }
 
 // ─── 通常画像 JPEG 圧縮 ────────────────────────────────────────────────────────

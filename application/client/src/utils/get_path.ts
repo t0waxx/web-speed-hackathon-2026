@@ -6,6 +6,10 @@ export function getMoviePath(movieId: string): string {
   return `/movies/${movieId}.gif`;
 }
 
+export function getMoviePosterPath(movieId: string): string {
+  return `/movies/${movieId}.webp`;
+}
+
 export function getSoundPath(soundId: string): string {
   return `/sounds/${soundId}.mp3`;
 }

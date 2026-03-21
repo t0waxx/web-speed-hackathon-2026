@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const LIMIT = 30;
+const DEFAULT_LIMIT = 20;
 
 /** apiPath に既にクエリがある場合は & で limit/offset を付与する */
-function buildUrl(apiPath: string, offset: number): string {
+function buildUrl(apiPath: string, offset: number, limit: number): string {
   const sep = apiPath.includes("?") ? "&" : "?";
-  return `${apiPath}${sep}limit=${LIMIT}&offset=${offset}`;
+  return `${apiPath}${sep}limit=${limit}&offset=${offset}`;
+}
+
+interface Options {
+  limit?: number;
 }
 
 interface ReturnValues<T> {
@@ -18,7 +22,9 @@ interface ReturnValues<T> {
 export function useInfiniteFetch<T>(
   apiPath: string,
   fetcher: (apiPath: string) => Promise<T[]>,
+  options?: Options,
 ): ReturnValues<T> {
+  const limit = options?.limit ?? DEFAULT_LIMIT;
   const internalRef = useRef({ isLoading: false, offset: 0, hasMore: true });
 
   const [result, setResult] = useState<Omit<ReturnValues<T>, "fetchMore">>({
@@ -43,7 +49,7 @@ export function useInfiniteFetch<T>(
       hasMore,
     };
 
-    void fetcher(buildUrl(apiPath, offset)).then(
+    void fetcher(buildUrl(apiPath, offset, limit)).then(
       (page) => {
         setResult((cur) => ({
           ...cur,
@@ -52,8 +58,8 @@ export function useInfiniteFetch<T>(
         }));
         internalRef.current = {
           isLoading: false,
-          offset: offset + LIMIT,
-          hasMore: page.length === LIMIT,
+          offset: offset + limit,
+          hasMore: page.length === limit,
         };
       },
       (error) => {
@@ -69,7 +75,7 @@ export function useInfiniteFetch<T>(
         };
       },
     );
-  }, [apiPath, fetcher]);
+  }, [apiPath, fetcher, limit]);
 
   useEffect(() => {
     if (!apiPath) {

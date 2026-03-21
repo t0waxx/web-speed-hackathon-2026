@@ -68,7 +68,7 @@ help:
 	@echo "    make format-scoring … scoring-tool のフォーマット"
 	@echo ""
 	@echo "  アセット最適化（ローカル Mac で実行、要 ffmpeg）"
-	@echo "    make optimize-assets       … GIF→MP4変換 + JPEG圧縮（変換済みはスキップ）"
+	@echo "    make optimize-assets       … GIF→MP4変換 + MP4先頭フレームWebP化 + JPEG圧縮（変換済みはスキップ）"
 	@echo "    make optimize-assets-force … 強制再変換（--force）"
 	@echo ""
 	@echo "  コンテナ（Dockerfile — 本番相当ビルド）"

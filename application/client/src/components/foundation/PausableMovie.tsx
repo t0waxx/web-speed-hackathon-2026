@@ -5,6 +5,7 @@ import { AspectRatioBox } from "@web-speed-hackathon-2026/client/src/components/
 import { FontAwesomeIcon } from "@web-speed-hackathon-2026/client/src/components/foundation/FontAwesomeIcon";
 
 interface Props {
+  posterSrc?: string;
   src: string;
 }
 
@@ -12,7 +13,7 @@ interface Props {
  * クリックすると再生・一時停止を切り替えます。
  * サーバーで H.265 MP4 に変換済みの動画を <video> でネイティブ再生します。
  */
-export const PausableMovie = ({ src }: Props) => {
+export const PausableMovie = ({ posterSrc, src }: Props) => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isVisible, setIsVisible] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -78,6 +79,8 @@ export const PausableMovie = ({ src }: Props) => {
               loop
               muted
               onLoadedData={handleLoadedData}
+              poster={posterSrc}
+              preload="metadata"
               playsInline
               ref={videoRef}
               src={src}
