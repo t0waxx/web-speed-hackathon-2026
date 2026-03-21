@@ -12,6 +12,8 @@ IMAGE_TAG      ?=
 TAG            ?=
 # ローカル起動時のデフォルト（application/README.md）
 APPLICATION_URL ?= http://localhost:3000
+# スコア計測対象名の部分一致文字列（score-one で使用）
+SCORE_TARGET ?=
 # E2E テストの絞り込み（空の場合は全件）
 E2E_SPEC ?=
 E2E_GREP ?=
@@ -56,6 +58,13 @@ help:
 	@echo "  ローカル採点（scoring-tool/README.md）"
 	@echo "    make score          … Lighthouse 計測（APPLICATION_URL を上書き可）"
 	@echo "    make score-targets  … 計測名一覧"
+	@echo "    make score-userflows… ユーザーフロー計測をまとめて実行"
+	@echo "    make score-user-auth… ユーザーフロー: ユーザー登録 → サインアウト → サインイン"
+	@echo "    make score-user-dm  … ユーザーフロー: DM送信"
+	@echo "    make score-user-search … ユーザーフロー: 検索 → 結果表示"
+	@echo "    make score-user-crok… ユーザーフロー: Crok AIチャット"
+	@echo "    make score-user-post… ユーザーフロー: 投稿"
+	@echo "    make score-one SCORE_TARGET=\"Crok\" … 計測名の部分一致で単体実行"
 	@echo "    make format-scoring … scoring-tool のフォーマット"
 	@echo ""
 	@echo "  アセット最適化（ローカル Mac で実行、要 ffmpeg）"
@@ -204,12 +213,40 @@ e2e-full:
 e2e-update:
 	cd $(APP_DIR)/e2e && bunx playwright test --update-snapshots
 
-.PHONY: score score-targets format-scoring
+.PHONY: score score-targets score-one score-userflows score-user-auth score-user-dm score-user-search score-user-crok score-user-post format-scoring
 score:
 	cd $(SCORE_DIR) && bun run start --applicationUrl $(APPLICATION_URL)
 
 score-targets:
 	cd $(SCORE_DIR) && bun run start --applicationUrl $(APPLICATION_URL) --targetName
+
+# 計測名を部分一致で指定して 1 つだけ実行
+score-one:
+	cd $(SCORE_DIR) && bun run start --applicationUrl $(APPLICATION_URL) --targetName "$(SCORE_TARGET)"
+
+# ユーザーフロー計測をまとめて実行（同一環境を使い回すと原因切り分けしやすい）
+score-userflows:
+	$(MAKE) score-user-auth
+	$(MAKE) score-user-dm
+	$(MAKE) score-user-search
+	$(MAKE) score-user-crok
+	$(MAKE) score-user-post
+
+# ユーザーフロー個別実行ターゲット
+score-user-auth:
+	$(MAKE) score-one SCORE_TARGET="ユーザーフロー: ユーザー登録 → サインアウト → サインイン"
+
+score-user-dm:
+	$(MAKE) score-one SCORE_TARGET="ユーザーフロー: DM送信"
+
+score-user-search:
+	$(MAKE) score-one SCORE_TARGET="ユーザーフロー: 検索 → 結果表示"
+
+score-user-crok:
+	$(MAKE) score-one SCORE_TARGET="ユーザーフロー: Crok AIチャット"
+
+score-user-post:
+	$(MAKE) score-one SCORE_TARGET="ユーザーフロー: 投稿"
 
 format-scoring:
 	cd $(SCORE_DIR) && bun run format

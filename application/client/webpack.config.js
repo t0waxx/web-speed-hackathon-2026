@@ -4,6 +4,7 @@ const path = require("path");
 const { BundleAnalyzerPlugin } = require("webpack-bundle-analyzer");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+const CssMinimizerPlugin = require("css-minimizer-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const webpack = require("webpack");
 
@@ -125,6 +126,8 @@ const config = {
   },
   optimization: {
     minimize: true,
+    // JS は既定の Terser、抽出 CSS は CssMinimizer で圧縮
+    minimizer: [`...`, new CssMinimizerPlugin()],
     splitChunks: {
       chunks: "async",
       maxSize: 500_000,

@@ -26,4 +26,22 @@ export async function initializeSequelize() {
     storage: TEMP_PATH,
   });
   initModels(_sequelize);
+
+  // WALモード（並行読み取り改善）
+  await _sequelize.query("PRAGMA journal_mode=WAL;");
+
+  // インデックス（外部キー・よく使うカラム）
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_posts_userId ON Posts(userId)`);
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_posts_createdAt ON Posts(createdAt)`);
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_comments_postId ON Comments(postId)`);
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_comments_userId ON Comments(userId)`);
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_dm_conversationId ON DirectMessages(conversationId)`);
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_dm_senderId ON DirectMessages(senderId)`);
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_dm_conversationId_createdAt ON DirectMessages(conversationId, createdAt)`);
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_dm_isRead_conversationId ON DirectMessages(isRead, conversationId)`);
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_dmc_initiatorId ON DirectMessageConversations(initiatorId)`);
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_dmc_memberId ON DirectMessageConversations(memberId)`);
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_pir_postId ON PostsImagesRelations(postId)`);
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_pir_imageId ON PostsImagesRelations(imageId)`);
+  await _sequelize.query(`CREATE INDEX IF NOT EXISTS idx_users_profileImageId ON Users(profileImageId)`);
 }

@@ -38,17 +38,28 @@ directMessageRouter.get("/dm", async (req, res) => {
 
   const conversationIds = conversations.map((c) => c.id);
 
-  // 各会話の最新メッセージを1クエリで取得（createdAt 同率は id 降順）
+  // 各会話の最新メッセージIDと未読情報を並列取得
   const placeholders = conversationIds.map(() => "?").join(",");
-  const rawLatest = await sequelize.query<{ id: string }>(
-    `SELECT ranked.id AS id FROM (
-      SELECT id,
-        ROW_NUMBER() OVER (PARTITION BY conversationId ORDER BY datetime(createdAt) DESC, id DESC) AS rn
-      FROM ${dmTable}
-      WHERE conversationId IN (${placeholders})
-    ) AS ranked WHERE ranked.rn = 1`,
-    { replacements: conversationIds, type: QueryTypes.SELECT },
-  );
+  const [rawLatest, unreadRows] = await Promise.all([
+    sequelize.query<{ id: string }>(
+      `SELECT ranked.id AS id FROM (
+        SELECT id,
+          ROW_NUMBER() OVER (PARTITION BY conversationId ORDER BY datetime(createdAt) DESC, id DESC) AS rn
+        FROM ${dmTable}
+        WHERE conversationId IN (${placeholders})
+      ) AS ranked WHERE ranked.rn = 1`,
+      { replacements: conversationIds, type: QueryTypes.SELECT },
+    ),
+    DirectMessage.findAll({
+      attributes: ["conversationId"],
+      where: {
+        conversationId: { [Op.in]: conversationIds },
+        senderId: { [Op.ne]: req.session.userId },
+        isRead: false,
+      },
+      group: ["conversationId"],
+    }),
+  ]);
 
   const latestMessageIds = rawLatest.map((r) => r.id);
   if (latestMessageIds.length === 0) {
@@ -58,17 +69,6 @@ directMessageRouter.get("/dm", async (req, res) => {
   const latestMessages = await DirectMessage.findAll({
     where: { id: { [Op.in]: latestMessageIds } },
     include: [{ association: "sender", include: [{ association: "profileImage" }] }],
-  });
-
-  // 相手からの未読がある会話IDを一括取得
-  const unreadRows = await DirectMessage.findAll({
-    attributes: ["conversationId"],
-    where: {
-      conversationId: { [Op.in]: conversationIds },
-      senderId: { [Op.ne]: req.session.userId },
-      isRead: false,
-    },
-    group: ["conversationId"],
   });
   const unreadConversationIds = new Set(unreadRows.map((dm) => dm.conversationId));
 
