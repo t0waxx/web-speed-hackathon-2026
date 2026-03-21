@@ -7,11 +7,12 @@ import { promisify } from "node:util";
 import type { RequestHandler } from "express";
 import sharp from "sharp";
 
+import { MAX_ICON_WIDTH } from "@web-speed-hackathon-2026/server/src/constants/imageOptimization";
+
 const execFileAsync = promisify(execFile);
 
 const MAX_IMAGE_WIDTH = 1200;
 const JPEG_QUALITY = 75;
-const MAX_ICON_WIDTH = 512;
 const WEBP_QUALITY = 80;
 const MAX_GIF_WIDTH = 480;
 
@@ -55,6 +56,18 @@ async function getOptimizedImage(filePath: string, isIcon: boolean): Promise<Buf
 
 async function getOptimizedGif(filePath: string): Promise<Buffer | null> {
   if (path.extname(filePath).toLowerCase() !== ".gif") return null;
+
+  // ビルド時に事前変換された MP4 があれば ffmpeg なしでそのまま返す
+  const mp4Path = filePath.replace(/\.gif$/i, ".mp4");
+  if (cache.has(mp4Path)) return cache.get(mp4Path)!;
+  try {
+    await fs.access(mp4Path);
+    const preConverted = await fs.readFile(mp4Path);
+    cache.set(mp4Path, preConverted);
+    return preConverted;
+  } catch {
+    // 事前変換済みファイルなし → ffmpeg フォールバック
+  }
 
   if (cache.has(filePath)) return cache.get(filePath)!;
 

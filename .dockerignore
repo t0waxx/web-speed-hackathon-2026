@@ -1,6 +1,23 @@
-node_modules
+# ビルドコンテキストから除外（レイヤーキャッシュ効率・転送量）
 .git
+**/.git
+
+**/node_modules/
+
 *.log
 
 application/server/seeds
 application/server/upload
+application/upload
+# 原本 GIF はローカル・git に避難済み。Docker イメージには MP4 のみ含める
+application/public/movies/*.gif
+# database.sqlite はサーバ起動時に必須（initializeSequelize がコピー元として読む）
+
+# ローカル検証用（本番イメージに不要）
+application/e2e/test-results/
+test-results/
+scoring-tool/
+terraform/
+
+.cache/
+.parcel-cache/

@@ -7,10 +7,12 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "start": "tsx src/index.ts",
+    "start": "bun ./src/index.ts",
     "typecheck": "tsc --noEmit",
     "seed:generate": "tsx ./scripts/generateSeeds.ts",
-    "seed:insert": "tsx ./scripts/insertSeeds.ts"
+    "seed:insert": "tsx ./scripts/insertSeeds.ts",
+    "optimize-assets": "bun ./scripts/optimizeAssets.ts",
+    "optimize-assets:force": "bun ./scripts/optimizeAssets.ts --force"
   },
   "dependencies": {
     "@tsconfig/strictest": "2.0.8",

@@ -1,0 +1,41 @@
+# Cloud Build 用（gcloud builds submit --config=cloudbuild.yaml --substitutions=_IMAGE=...）
+# Dockerfile の RUN --mount=type=cache は BuildKit 必須のため DOCKER_BUILDKIT=1 を付与する
+substitutions:
+  _IMAGE: "must-override"
+
+steps:
+  # Step 1: bun で依存パッケージをインストール
+  - name: "oven/bun:1.3.9"
+    dir: "application"
+    entrypoint: "bun"
+    args: ["install", "--frozen-lockfile"]
+
+  # Step 2: Node.js で webpack バンドルをビルド（bun の node シムは webpack-cli と非互換）
+  - name: "node:24"
+    dir: "application/client"
+    entrypoint: "sh"
+    args:
+      - "-c"
+      - |
+        NODE_ENV=development NODE_OPTIONS="--max-old-space-size=4096" node node_modules/webpack-cli/bin/cli.js
+        test -f ../dist/index.html && echo "=== dist OK ===" || (echo "=== dist MISSING ===" && exit 1)
+
+  # Step 4: Docker イメージをビルドして Artifact Registry へ push
+  # ※ GIF→MP4変換・画像圧縮はローカルで `make optimize-assets` 実行後コミットしておくこと
+  - name: "gcr.io/cloud-builders/docker"
+    env:
+      - "DOCKER_BUILDKIT=1"
+    args:
+      - "build"
+      - "-f"
+      - "Dockerfile"
+      - "-t"
+      - "${_IMAGE}"
+      - "."
+
+images:
+  - "${_IMAGE}"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: "E2_HIGHCPU_8"

@@ -5,6 +5,11 @@
 
 APP_DIR        := application
 SCORE_DIR      := scoring-tool
+TF_DIR         := terraform
+# Terraform plan / apply 用（未指定なら tfvars の image_tag に依存。check で両方空は不可）
+IMAGE_TAG      ?=
+# make gcp-deploy TAG=... でイメージタグを上書き（省略時は Git 短 SHA）
+TAG            ?=
 # ローカル起動時のデフォルト（application/README.md）
 APPLICATION_URL ?= http://localhost:3000
 # E2E テストの絞り込み（空の場合は全件）
@@ -53,8 +58,26 @@ help:
 	@echo "    make score-targets  … 計測名一覧"
 	@echo "    make format-scoring … scoring-tool のフォーマット"
 	@echo ""
+	@echo "  アセット最適化（ローカル Mac で実行、要 ffmpeg）"
+	@echo "    make optimize-assets       … GIF→MP4変換 + JPEG圧縮（変換済みはスキップ）"
+	@echo "    make optimize-assets-force … 強制再変換（--force）"
+	@echo ""
 	@echo "  コンテナ（Dockerfile — 本番相当ビルド）"
 	@echo "    make docker-build   … docker build（ポート 8080 想定）"
+	@echo ""
+	@echo "  GCP（terraform/・gcloud / Cloud Build）詳細: docs/deployment.md"
+	@echo "    make gcp-deploy     … ビルド→push→terraform apply→新リビジョン作成（通常デプロイ）"
+	@echo "    make gcp-deploy TAG=手動タグ … タグを固定してデプロイ"
+	@echo "    make gcp-redeploy   … ビルドなし・現タグで Cloud Run リビジョンを強制再作成"
+	@echo "    make gcp-logs       … Cloud Run のライブログを表示"
+	@echo "    make terraform-init … terraform init（$(TF_DIR)）"
+	@echo "    make terraform-fmt  … terraform fmt（$(TF_DIR)）"
+	@echo "    make terraform-validate … terraform validate"
+	@echo "    make terraform-plan … terraform plan（terraform.tfvars があれば自動読込）"
+	@echo "    make terraform-plan IMAGE_TAG=abc … image_tag を CLI で指定"
+	@echo "    make terraform-apply … terraform apply（対話確認）"
+	@echo "    make terraform-output … load_balancer_ip を表示"
+	@echo "    事前: cp $(TF_DIR)/terraform.tfvars.example $(TF_DIR)/terraform.tfvars"
 
 .PHONY: setup mise-trust mise-install install install-app install-scoring
 setup: mise-trust mise-install install
@@ -72,6 +95,13 @@ install-app:
 
 install-scoring:
 	cd $(SCORE_DIR) && bun install --frozen-lockfile
+
+.PHONY: optimize-assets optimize-assets-force
+optimize-assets:
+	cd $(APP_DIR)/server && bun run optimize-assets
+
+optimize-assets-force:
+	cd $(APP_DIR)/server && bun run optimize-assets:force
 
 .PHONY: build analyze start typecheck format clean
 build:
@@ -187,3 +217,52 @@ format-scoring:
 .PHONY: docker-build
 docker-build:
 	docker build -t web-speed-hackathon-2026 .
+
+# --- GCP / Terraform ---
+# -chdir 指定時も確実に読むため、tfvars は絶対パスで渡す
+TFVARS_FILE := $(abspath $(TF_DIR)/terraform.tfvars)
+TFVARS_OPT  := $(if $(wildcard $(TF_DIR)/terraform.tfvars),-var-file=$(TFVARS_FILE),)
+IMAGE_VAR   := $(if $(IMAGE_TAG),-var=image_tag=$(IMAGE_TAG),)
+
+# GCP_PROJECT_ID / GCP_REGION / CLOUD_RUN_SERVICE は環境変数または gcloud config で設定
+GCP_PROJECT_ID ?=
+GCP_REGION     ?= asia-northeast1
+CLOUD_RUN_SERVICE ?= wsh-app
+
+# 現在デプロイ済みのイメージを取得（gcp-redeploy 用）
+_CURRENT_IMAGE = $(shell terraform -chdir=$(TF_DIR) output -raw 2>/dev/null || echo "")
+_DEPLOYED_TAG   = $(shell git -C . rev-parse --short HEAD)
+_DEPLOYED_IMAGE = $(GCP_REGION)-docker.pkg.dev/$(shell gcloud config get-value project 2>/dev/null)/web-speed-hackathon-2026/app:$(_DEPLOYED_TAG)
+
+.PHONY: gcp-deploy gcp-redeploy gcp-logs terraform-init terraform-fmt terraform-validate terraform-plan terraform-apply terraform-output
+gcp-deploy:
+	./scripts/deploy-gcp.sh $(TAG)
+
+gcp-redeploy:
+	gcloud run deploy $(CLOUD_RUN_SERVICE) \
+	  --image=$(_DEPLOYED_IMAGE) \
+	  --region=$(GCP_REGION) \
+	  --quiet
+
+gcp-logs:
+	gcloud run services logs tail $(CLOUD_RUN_SERVICE) \
+	  --region=$(GCP_REGION) \
+	  --project=$(shell gcloud config get-value project 2>/dev/null)
+
+terraform-init:
+	terraform -chdir=$(TF_DIR) init
+
+terraform-fmt:
+	terraform -chdir=$(TF_DIR) fmt -recursive
+
+terraform-validate:
+	terraform -chdir=$(TF_DIR) validate
+
+terraform-plan:
+	terraform -chdir=$(TF_DIR) plan $(TFVARS_OPT) $(IMAGE_VAR)
+
+terraform-apply:
+	terraform -chdir=$(TF_DIR) apply $(TFVARS_OPT) $(IMAGE_VAR)
+
+terraform-output:
+	terraform -chdir=$(TF_DIR) output load_balancer_ip
