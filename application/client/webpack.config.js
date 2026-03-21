@@ -136,7 +136,7 @@ const config = {
     concatenateModules: true,
     usedExports: true,
     providedExports: true,
-    sideEffects: false,
+    sideEffects: true,
   },
   cache: {
     type: "filesystem",

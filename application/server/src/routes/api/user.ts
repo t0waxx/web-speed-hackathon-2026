@@ -11,13 +11,19 @@ userRouter.get("/me", async (req, res) => {
   if (req.session.userId === undefined) {
     throw new httpErrors.Unauthorized();
   }
+  const key = `/me/${req.session.userId}`;
+  const cached = cacheGet(key);
+  if (cached) return res.status(200).type("application/json").send(cached);
+
   const user = await User.findByPk(req.session.userId);
 
   if (user === null) {
     throw new httpErrors.NotFound();
   }
 
-  return res.status(200).type("application/json").send(user);
+  const body = JSON.stringify(user);
+  cacheSet(key, body, 5_000);
+  return res.status(200).type("application/json").send(body);
 });
 
 userRouter.put("/me", async (req, res) => {
@@ -38,6 +44,7 @@ userRouter.put("/me", async (req, res) => {
   await user.save();
 
   cacheInvalidatePrefix(`/users/${req.params.username}`);
+  cacheInvalidatePrefix(`/me/${req.session.userId}`);
   return res.status(200).type("application/json").send(user);
 });
 
