@@ -1,0 +1,12 @@
+# コピーして使う: cp terraform.tfvars.example terraform.tfvars
+# terraform.tfvars は .gitignore 済み（秘密情報を書いてもリポジトリに乗りにくい）
+
+project_id = "t0waxx"
+# region     = "asia-northeast1"
+# service_name = "wsh-app"
+
+# 毎回のデプロイで変えるのは主にタグ（scripts/deploy-gcp.sh が自動で渡すので通常は空でよい）
+# image_tag = "手動で指定する場合"
+
+# artifact_repository   = "web-speed-hackathon-2026"
+# artifact_image_name   = "app"
