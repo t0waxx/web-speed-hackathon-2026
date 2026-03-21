@@ -11,14 +11,15 @@ steps:
     args: ["install", "--frozen-lockfile"]
 
   # Step 2: Node.js で webpack バンドルをビルド（bun の node シムは webpack-cli と非互換）
-  # bun の .bun/ 内部パスから tailwindcss を解決できないため、application/node_modules/ へ直接インストールする
+  # bun の .bun/ 内部パスから tailwindcss を解決できないため、標準パスへシンボリックリンクを張る
   - name: "node:24"
     dir: "application"
     entrypoint: "sh"
     args:
       - "-c"
       - |
-        npm install tailwindcss @tailwindcss/postcss --no-save --legacy-peer-deps
+        TAIL=$(ls -d node_modules/.bun/tailwindcss@*/node_modules/tailwindcss 2>/dev/null | head -1)
+        [ -n "$TAIL" ] && ln -sfn "$TAIL" node_modules/tailwindcss && echo "=== tailwindcss → $TAIL ===" || echo "=== tailwindcss not found in .bun ==="
         cd client
         NODE_ENV=development NODE_OPTIONS="--max-old-space-size=4096" node node_modules/webpack-cli/bin/cli.js
         test -f ../dist/index.html && echo "=== dist OK ===" || (echo "=== dist MISSING ===" && exit 1)
