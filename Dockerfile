@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1
 
 ARG BUN_VERSION=1.3.9
+# Linux amd64 向け（Fly.io 実行環境・Apple Silicon 上の docker build とのズレ防止）
+ARG TARGETPLATFORM=linux/amd64
 
-FROM oven/bun:${BUN_VERSION} AS base
+FROM --platform=$TARGETPLATFORM oven/bun:${BUN_VERSION} AS base
 
 LABEL fly_launch_runtime="Node.js"
 
