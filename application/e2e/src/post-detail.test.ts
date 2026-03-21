@@ -11,7 +11,10 @@ test.describe("投稿詳細", () => {
     await page.goto("/");
     const firstArticle = page.locator("article").first();
     await expect(firstArticle).toBeVisible({ timeout: 30_000 });
-    await firstArticle.click();
+    // 先頭が動画だと記事中央が button になり article の onClick では遷移しないため、投稿詳細への Link をクリックする
+    const postDetailLink = firstArticle.locator('a[href^="/posts/"]').first();
+    await expect(postDetailLink).toBeVisible({ timeout: 30_000 });
+    await postDetailLink.click();
     await page.waitForURL("**/posts/*", { timeout: 30_000 });
 
     const article = page.locator("article").first();
@@ -28,7 +31,9 @@ test.describe("投稿詳細", () => {
     await page.goto("/");
     const firstArticle = page.locator("article").first();
     await expect(firstArticle).toBeVisible({ timeout: 30_000 });
-    await firstArticle.click();
+    const postDetailLink = firstArticle.locator('a[href^="/posts/"]').first();
+    await expect(postDetailLink).toBeVisible({ timeout: 30_000 });
+    await postDetailLink.click();
     await page.waitForURL("**/posts/*", { timeout: 30_000 });
 
     await expect(page).toHaveTitle(/さんのつぶやき - CaX/, { timeout: 30_000 });
