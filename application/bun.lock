@@ -108,9 +108,11 @@
       "version": "0.0.1",
       "dependencies": {
         "@tsconfig/strictest": "2.0.8",
+        "@types/compression": "^1.8.1",
         "@web-speed-hackathon-2026/server": "workspace:*",
         "bcrypt": "6.0.0",
         "body-parser": "2.2.0",
+        "compression": "^1.8.1",
         "connect-history-api-fallback": "2.0.0",
         "express": "5.1.0",
         "express-session": "1.18.2",
@@ -709,6 +711,8 @@
     "@types/bonjour": ["@types/bonjour@3.5.13", "", { "dependencies": { "@types/node": "22.18.8" } }, "sha512-z9fJ5Im06zvUL548KvYNecEVlA7cVDkGUi6kZusb04mpyEFKCIZJvloCcmpmLaIahDpOQGHaHmG6imtPMmPXGQ=="],
 
     "@types/common-tags": ["@types/common-tags@1.8.4", "", {}, "sha512-S+1hLDJPjWNDhcGxsxEbepzaxWqURP/o+3cP4aa2w7yBXgdcmKGQtZzP8JbyfOd0m+33nh+8+kvxYE2UJtBDkg=="],
+
+    "@types/compression": ["@types/compression@1.8.1", "", { "dependencies": { "@types/express": "*", "@types/node": "*" } }, "sha512-kCFuWS0ebDbmxs0AXYn6e2r2nrGAb5KwQhknjSPSPgJcGd8+HVSILlUyFhGqML2gk39HcG7D1ydW9/qpYkN00Q=="],
 
     "@types/connect": ["@types/connect@3.4.38", "", { "dependencies": { "@types/node": "22.18.8" } }, "sha512-K6uROf1LD88uDQqJCktA4yzL1YYAK6NgfsI0v/mTgyPKWsX1CnJ0XPSDhViejru1GcRkLWb8RlzFYJRqGUbaug=="],
 
