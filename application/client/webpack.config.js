@@ -129,14 +129,14 @@ const config = {
     // JS は既定の Terser、抽出 CSS は CssMinimizer で圧縮
     minimizer: [`...`, new CssMinimizerPlugin()],
     splitChunks: {
-      chunks: "async",
+      chunks: "all",
       maxSize: 500_000,
     },
     runtimeChunk: "single",
     concatenateModules: true,
     usedExports: true,
     providedExports: true,
-    sideEffects: true,
+    sideEffects: false,
   },
   cache: {
     type: "filesystem",

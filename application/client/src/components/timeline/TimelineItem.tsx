@@ -1,4 +1,3 @@
-import moment from "moment";
 import { MouseEventHandler, useCallback } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -27,10 +26,11 @@ const isClickedAnchorOrButton = (target: EventTarget | null, currentTarget: Elem
  * @property {Models.Post} post
  */
 interface Props {
+  eagerMovie?: boolean;
   post: Models.Post;
 }
 
-export const TimelineItem = ({ post }: Props) => {
+export const TimelineItem = ({ eagerMovie = false, post }: Props) => {
   const navigate = useNavigate();
 
   /**
@@ -77,8 +77,8 @@ export const TimelineItem = ({ post }: Props) => {
             </Link>
             <span className="text-cax-text-muted pr-1">-</span>
             <Link className="text-cax-text-muted pr-1 hover:underline" to={`/posts/${post.id}`}>
-              <time dateTime={moment(post.createdAt).toISOString()}>
-                {moment(post.createdAt).locale("ja").format("LL")}
+              <time dateTime={new Date(post.createdAt).toISOString()}>
+                {new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric" }).format(new Date(post.createdAt))}
               </time>
             </Link>
           </p>
@@ -92,7 +92,7 @@ export const TimelineItem = ({ post }: Props) => {
           ) : null}
           {post.movie ? (
             <div className="relative mt-2 w-full">
-              <MovieArea movie={post.movie} />
+              <MovieArea eager={eagerMovie} movie={post.movie} />
             </div>
           ) : null}
           {post.sound ? (
