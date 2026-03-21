@@ -5,6 +5,7 @@ import { AspectRatioBox } from "@web-speed-hackathon-2026/client/src/components/
 import { FontAwesomeIcon } from "@web-speed-hackathon-2026/client/src/components/foundation/FontAwesomeIcon";
 
 interface Props {
+  eager?: boolean;
   posterSrc?: string;
   src: string;
 }
@@ -13,15 +14,18 @@ interface Props {
  * クリックすると再生・一時停止を切り替えます。
  * サーバーで H.265 MP4 に変換済みの動画を <video> でネイティブ再生します。
  */
-export const PausableMovie = ({ posterSrc, src }: Props) => {
+export const PausableMovie = ({ eager = false, posterSrc, src }: Props) => {
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(eager);
   const rootRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // ビューポート手前 200px で遅延ロード開始
+  // LCP候補は遅延させず、それ以外のみビューポート手前 200px でロード開始
   useEffect(() => {
+    if (eager) {
+      return;
+    }
     const el = rootRef.current;
     if (el === null) return;
     const observer = new IntersectionObserver(
@@ -35,7 +39,18 @@ export const PausableMovie = ({ posterSrc, src }: Props) => {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [eager]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video == null) return;
+    if (eager) {
+      // React の型定義が video.fetchPriority を未対応のため属性を直接付与する
+      video.setAttribute("fetchpriority", "high");
+      return;
+    }
+    video.removeAttribute("fetchpriority");
+  }, [eager]);
 
   // 視覚効果 off のとき自動再生しない（元実装に合わせる）
   const handleLoadedData = useCallback(() => {
@@ -80,7 +95,7 @@ export const PausableMovie = ({ posterSrc, src }: Props) => {
               muted
               onLoadedData={handleLoadedData}
               poster={posterSrc}
-              preload="metadata"
+              preload={eager ? "auto" : "metadata"}
               playsInline
               ref={videoRef}
               src={src}

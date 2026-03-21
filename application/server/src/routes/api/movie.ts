@@ -11,8 +11,8 @@ import { v4 as uuidv4 } from "uuid";
 import { MAX_MOVIE_WIDTH } from "@web-speed-hackathon-2026/server/src/constants/movieOptimization";
 import { UPLOAD_PATH } from "@web-speed-hackathon-2026/server/src/paths";
 
-// 変換した動画の拡張子
-const EXTENSION = "gif";
+// 受け付ける動画の MIME タイプ
+const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm", "video/ogg", "video/x-matroska", "video/quicktime", "video/x-msvideo", "video/mpeg"]);
 
 export const movieRouter = Router();
 const execFileAsync = promisify(execFile);
@@ -26,30 +26,32 @@ movieRouter.post("/movies", async (req, res) => {
   }
 
   const type = await fileTypeFromBuffer(req.body);
-  if (type === undefined || type.ext !== EXTENSION) {
+  const isVideo = type != null && (VIDEO_MIME_TYPES.has(type.mime) || type.mime.startsWith("video/"));
+  const isGif = type?.ext === "gif";
+  if (!isVideo && !isGif) {
     throw new httpErrors.BadRequest("Invalid file type");
   }
 
   const movieId = uuidv4();
 
-  const gifPath = path.resolve(UPLOAD_PATH, `./movies/${movieId}.${EXTENSION}`);
+  const inputExt = type!.ext;
+  const inputPath = path.resolve(UPLOAD_PATH, `./movies/${movieId}.${inputExt}`);
   const mp4Path = path.resolve(UPLOAD_PATH, `./movies/${movieId}.mp4`);
   const webpPath = path.resolve(UPLOAD_PATH, `./movies/${movieId}.webp`);
   await fs.mkdir(path.resolve(UPLOAD_PATH, "movies"), { recursive: true });
-  await fs.writeFile(gifPath, req.body);
+  await fs.writeFile(inputPath, req.body);
 
   // 動画配信を高速化するため、投稿時に MP4 とポスター用 WebP を先に生成しておく。
-  await execFileAsync("ffmpeg", [
-    "-i", gifPath,
-    "-vf", `scale=${MAX_MOVIE_WIDTH}:-2:flags=lanczos,format=yuv420p`,
-    "-c:v", "libx264",
-    "-crf", "28",
-    "-preset", "fast",
-    "-movflags", "+faststart",
-    "-an",
-    "-y",
-    mp4Path,
-  ]);
+  // 生動画の場合は先頭5秒・10fps・正方形クロップも適用する。
+  const vfFilter = isGif
+    ? `scale=${MAX_MOVIE_WIDTH}:-2:flags=lanczos,format=yuv420p`
+    : `crop='min(iw,ih)':'min(iw,ih)',scale=${MAX_MOVIE_WIDTH}:${MAX_MOVIE_WIDTH}:flags=lanczos,format=yuv420p`;
+
+  const ffmpegArgs = isGif
+    ? ["-i", inputPath, "-vf", vfFilter, "-c:v", "libx264", "-crf", "28", "-preset", "fast", "-movflags", "+faststart", "-an", "-y", mp4Path]
+    : ["-i", inputPath, "-t", "5", "-r", "10", "-vf", vfFilter, "-c:v", "libx264", "-crf", "28", "-preset", "fast", "-movflags", "+faststart", "-an", "-y", mp4Path];
+
+  await execFileAsync("ffmpeg", ffmpegArgs);
 
   await execFileAsync("ffmpeg", [
     "-i", mp4Path,

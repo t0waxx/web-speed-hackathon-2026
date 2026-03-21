@@ -1,5 +1,4 @@
 import classNames from "classnames";
-import moment from "moment";
 import {
   ChangeEvent,
   useCallback,
@@ -14,6 +13,8 @@ import {
 import { FontAwesomeIcon } from "@web-speed-hackathon-2026/client/src/components/foundation/FontAwesomeIcon";
 import { DirectMessageFormData } from "@web-speed-hackathon-2026/client/src/direct_message/types";
 import { getProfileImagePath } from "@web-speed-hackathon-2026/client/src/utils/get_path";
+
+const timeFormatter = new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false });
 
 interface Props {
   conversationError: Error | null;
@@ -36,6 +37,8 @@ export const DirectMessagePage = ({
 }: Props) => {
   const formRef = useRef<HTMLFormElement>(null);
   const textAreaId = useId();
+  const listRef = useRef<HTMLUListElement>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const peer =
     conversation.initiator.id !== activeUser.id ? conversation.initiator : conversation.member;
@@ -49,7 +52,12 @@ export const DirectMessagePage = ({
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
       setText(event.target.value);
-      onTyping();
+      if (typingTimerRef.current === null) {
+        onTyping();
+        typingTimerRef.current = setTimeout(() => {
+          typingTimerRef.current = null;
+        }, 3000);
+      }
     },
     [onTyping],
   );
@@ -75,12 +83,9 @@ export const DirectMessagePage = ({
   );
 
   useEffect(() => {
-    const observer = new ResizeObserver(() => {
-      window.scrollTo(0, document.body.scrollHeight);
-    });
-    observer.observe(document.body);
-    return () => observer.disconnect();
-  }, []);
+    const lastChild = listRef.current?.lastElementChild;
+    lastChild?.scrollIntoView();
+  }, [messages.length]);
 
   if (conversationError != null) {
     return (
@@ -115,12 +120,13 @@ export const DirectMessagePage = ({
           </p>
         )}
 
-        <ul className="grid gap-3" data-testid="dm-message-list">
+        <ul ref={listRef} className="grid gap-3" data-testid="dm-message-list">
           {messages.map((message) => {
             const isActiveUserSend = message.sender.id === activeUser.id;
 
             return (
               <li
+                key={message.id}
                 className={classNames(
                   "flex flex-col w-full",
                   isActiveUserSend ? "items-end" : "items-start",
@@ -138,7 +144,7 @@ export const DirectMessagePage = ({
                 </p>
                 <div className="flex gap-1 text-xs">
                   <time dateTime={message.createdAt}>
-                    {moment(message.createdAt).locale("ja").format("HH:mm")}
+                    {timeFormatter.format(new Date(message.createdAt))}
                   </time>
                   {isActiveUserSend && message.isRead && (
                     <span className="text-cax-text-muted">既読</span>

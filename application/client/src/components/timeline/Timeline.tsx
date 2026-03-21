@@ -7,8 +7,9 @@ interface Props {
 export const Timeline = ({ timeline }: Props) => {
   return (
     <section>
-      {timeline.map((post) => {
-        return <TimelineItem key={post.id} post={post} />;
+      {timeline.map((post, index) => {
+        // 画面上部に現れやすい先頭数件は動画を優先ロードしてLCP候補の遅延を避ける
+        return <TimelineItem eagerMovie={index < 3} key={post.id} post={post} />;
       })}
     </section>
   );
