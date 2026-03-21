@@ -70,6 +70,9 @@ export const AppContainer = () => {
       .then((user) => {
         setActiveUser(user);
       })
+      .catch(() => {
+        // 未ログイン時の401は正常。コンソールエラーを抑制する。
+      })
       .finally(() => {
         setIsLoadingActiveUser(false);
       });
