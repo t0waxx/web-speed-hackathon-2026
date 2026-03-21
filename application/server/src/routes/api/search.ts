@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Op } from "sequelize";
 
 import { Post } from "@web-speed-hackathon-2026/server/src/models";
+import { cacheGet, cacheSet } from "@web-speed-hackathon-2026/server/src/utils/memory_cache";
 import { parseSearchQuery } from "@web-speed-hackathon-2026/server/src/utils/parse_search_query.js";
 
 export const searchRouter = Router();
@@ -12,6 +13,10 @@ searchRouter.get("/search", async (req, res) => {
   if (typeof query !== "string" || query.trim() === "") {
     return res.status(200).type("application/json").send([]);
   }
+
+  const cacheKey = `/search?q=${query}&limit=${req.query["limit"] ?? ""}&offset=${req.query["offset"] ?? ""}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return res.status(200).type("application/json").send(cached);
 
   const { keywords, sinceDate, untilDate } = parseSearchQuery(query);
 
@@ -71,5 +76,7 @@ searchRouter.get("/search", async (req, res) => {
     order: [["createdAt", "DESC"]],
   });
 
-  return res.status(200).type("application/json").send(posts);
+  const body = JSON.stringify(posts);
+  cacheSet(cacheKey, body, 10_000);
+  return res.status(200).type("application/json").send(body);
 });

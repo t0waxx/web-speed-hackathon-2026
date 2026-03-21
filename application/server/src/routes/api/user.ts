@@ -3,6 +3,7 @@ import { Router } from "express";
 import httpErrors from "http-errors";
 
 import { Post, User } from "@web-speed-hackathon-2026/server/src/models";
+import { cacheGet, cacheInvalidatePrefix, cacheSet } from "@web-speed-hackathon-2026/server/src/utils/memory_cache";
 
 export const userRouter = Router();
 
@@ -36,10 +37,15 @@ userRouter.put("/me", async (req, res) => {
   Object.assign(user, body);
   await user.save();
 
+  cacheInvalidatePrefix(`/users/${req.params.username}`);
   return res.status(200).type("application/json").send(user);
 });
 
 userRouter.get("/users/:username", async (req, res) => {
+  const key = `/users/${req.params.username}`;
+  const cached = cacheGet(key);
+  if (cached) return res.status(200).type("application/json").send(cached);
+
   const user = await User.findOne({
     where: {
       username: req.params.username,
@@ -50,10 +56,16 @@ userRouter.get("/users/:username", async (req, res) => {
     throw new httpErrors.NotFound();
   }
 
-  return res.status(200).type("application/json").send(user);
+  const body = JSON.stringify(user);
+  cacheSet(key, body, 30_000);
+  return res.status(200).type("application/json").send(body);
 });
 
 userRouter.get("/users/:username/posts", async (req, res) => {
+  const key = `/users/${req.params.username}/posts?limit=${req.query["limit"] ?? ""}&offset=${req.query["offset"] ?? ""}`;
+  const cached = cacheGet(key);
+  if (cached) return res.status(200).type("application/json").send(cached);
+
   const user = await User.findOne({
     where: {
       username: req.params.username,
@@ -72,5 +84,7 @@ userRouter.get("/users/:username/posts", async (req, res) => {
     },
   });
 
-  return res.status(200).type("application/json").send(posts);
+  const body = JSON.stringify(posts);
+  cacheSet(key, body, 10_000);
+  return res.status(200).type("application/json").send(body);
 });

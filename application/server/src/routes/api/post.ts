@@ -2,29 +2,46 @@ import { Router } from "express";
 import httpErrors from "http-errors";
 
 import { Comment, Post } from "@web-speed-hackathon-2026/server/src/models";
+import { cacheGet, cacheInvalidatePrefix, cacheSet } from "@web-speed-hackathon-2026/server/src/utils/memory_cache";
 
 export const postRouter = Router();
 
 postRouter.get("/posts", async (req, res) => {
+  const key = `/posts?limit=${req.query["limit"] ?? ""}&offset=${req.query["offset"] ?? ""}`;
+  const cached = cacheGet(key);
+  if (cached) return res.status(200).type("application/json").send(cached);
+
   const posts = await Post.findAll({
     limit: req.query["limit"] != null ? Number(req.query["limit"]) : undefined,
     offset: req.query["offset"] != null ? Number(req.query["offset"]) : undefined,
   });
 
-  return res.status(200).type("application/json").send(posts);
+  const body = JSON.stringify(posts);
+  cacheSet(key, body, 10_000);
+  return res.status(200).type("application/json").send(body);
 });
 
 postRouter.get("/posts/:postId", async (req, res) => {
+  const key = `/posts/${req.params.postId}`;
+  const cached = cacheGet(key);
+  if (cached) return res.status(200).type("application/json").send(cached);
+
   const post = await Post.findByPk(req.params.postId);
 
   if (post === null) {
     throw new httpErrors.NotFound();
   }
 
-  return res.status(200).type("application/json").send(post);
+  const body = JSON.stringify(post);
+  cacheSet(key, body, 30_000);
+  return res.status(200).type("application/json").send(body);
 });
 
 postRouter.get("/posts/:postId/comments", async (req, res) => {
+  const key = `/posts/${req.params.postId}/comments?limit=${req.query["limit"] ?? ""}&offset=${req.query["offset"] ?? ""}`;
+  const cached = cacheGet(key);
+  if (cached) return res.status(200).type("application/json").send(cached);
+
   const posts = await Comment.findAll({
     limit: req.query["limit"] != null ? Number(req.query["limit"]) : undefined,
     offset: req.query["offset"] != null ? Number(req.query["offset"]) : undefined,
@@ -33,7 +50,9 @@ postRouter.get("/posts/:postId/comments", async (req, res) => {
     },
   });
 
-  return res.status(200).type("application/json").send(posts);
+  const body = JSON.stringify(posts);
+  cacheSet(key, body, 10_000);
+  return res.status(200).type("application/json").send(body);
 });
 
 postRouter.post("/posts", async (req, res) => {
@@ -58,5 +77,6 @@ postRouter.post("/posts", async (req, res) => {
     },
   );
 
+  cacheInvalidatePrefix("/posts");
   return res.status(200).type("application/json").send(post);
 });
