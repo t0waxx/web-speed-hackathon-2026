@@ -52,7 +52,11 @@ test.describe("ホーム", () => {
   test("投稿クリック → 投稿詳細に遷移する", async ({ page }) => {
     const firstArticle = page.locator("article").first();
     await expect(firstArticle).toBeVisible({ timeout: 30_000 });
-    await firstArticle.click();
+    // 先頭が動画投稿だと記事中央が動画プレイヤー（button）になり、article の onClick では遷移しない
+    // タイムライン上の投稿詳細への Link（日付）をクリックして遷移を検証する
+    const postDetailLink = firstArticle.locator('a[href^="/posts/"]').first();
+    await expect(postDetailLink).toBeVisible({ timeout: 30_000 });
+    await postDetailLink.click();
     await page.waitForURL("**/posts/*", { timeout: 30_000 });
     expect(page.url()).toMatch(/\/posts\/[a-zA-Z0-9-]+/);
   });
