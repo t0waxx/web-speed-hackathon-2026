@@ -18,6 +18,7 @@ postRouter.get("/posts", async (req, res) => {
 
   const body = JSON.stringify(posts);
   cacheSet(key, body, 10_000);
+  res.setHeader("Cache-Control", "public, s-maxage=10");
   return res.status(200).type("application/json").send(body);
 });
 
@@ -34,6 +35,7 @@ postRouter.get("/posts/:postId", async (req, res) => {
 
   const body = JSON.stringify(post);
   cacheSet(key, body, 30_000);
+  res.setHeader("Cache-Control", "public, s-maxage=30");
   return res.status(200).type("application/json").send(body);
 });
 
@@ -52,6 +54,7 @@ postRouter.get("/posts/:postId/comments", async (req, res) => {
 
   const body = JSON.stringify(posts);
   cacheSet(key, body, 10_000);
+  res.setHeader("Cache-Control", "public, s-maxage=10");
   return res.status(200).type("application/json").send(body);
 });
 

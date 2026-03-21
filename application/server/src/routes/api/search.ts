@@ -78,5 +78,6 @@ searchRouter.get("/search", async (req, res) => {
 
   const body = JSON.stringify(posts);
   cacheSet(cacheKey, body, 10_000);
+  res.setHeader("Cache-Control", "public, s-maxage=10");
   return res.status(200).type("application/json").send(body);
 });

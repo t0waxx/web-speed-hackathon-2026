@@ -58,6 +58,7 @@ userRouter.get("/users/:username", async (req, res) => {
 
   const body = JSON.stringify(user);
   cacheSet(key, body, 30_000);
+  res.setHeader("Cache-Control", "public, s-maxage=30");
   return res.status(200).type("application/json").send(body);
 });
 
@@ -86,5 +87,6 @@ userRouter.get("/users/:username/posts", async (req, res) => {
 
   const body = JSON.stringify(posts);
   cacheSet(key, body, 10_000);
+  res.setHeader("Cache-Control", "public, s-maxage=10");
   return res.status(200).type("application/json").send(body);
 });
