@@ -5,7 +5,7 @@
  * 事前条件: ffmpeg がインストール済み (brew install ffmpeg)
  * - GIF → MP4 変換（原本 .gif はそのまま保持）
  * - JPEG 圧縮（最大幅・品質を落として軽量化）
- * - プロフィール画像 JPEG 圧縮（幅は src/constants/imageOptimization.ts の MAX_ICON_WIDTH と一致）
+ * - プロフィール画像を WebP 化（幅・品質は src/constants/imageOptimization.ts と一致）
  *
  * 変換済みの MP4 / 縮小済み JPEG は Docker イメージに含まれる。
  * 本番では image_optimize ミドルウェアも同じ上限で変換するが、ここで先に縮小しておくと
@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 
 import sharp from "sharp";
 
-import { MAX_ICON_WIDTH } from "../src/constants/imageOptimization";
+import { MAX_ICON_WIDTH, WEBP_ICON_QUALITY } from "../src/constants/imageOptimization";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, "../../public");
@@ -101,27 +101,32 @@ for (const file of imageFiles) {
   console.log(`${fmtKB(buf.length)} (-${ratio}%)`);
 }
 
-// ─── プロフィール画像 JPEG 圧縮 ───────────────────────────────────────────────
+// ─── プロフィール画像 WebP 化（拡張子 .webp、元 JPEG/PNG は削除）────────────────
 
-console.log("\n=== プロフィール画像 JPEG 圧縮 ===");
+console.log("\n=== プロフィール画像 WebP 化 ===");
 const profileFiles = (await fs.readdir(PROFILES_DIR)).filter((f) =>
-  /\.(jpg|jpeg|png)$/i.test(f),
+  /\.(jpg|jpeg|png|webp)$/i.test(f),
 );
 
 for (const file of profileFiles) {
   const srcPath = path.join(PROFILES_DIR, file);
+  const base = path.basename(file, path.extname(file));
+  const dstPath = path.join(PROFILES_DIR, `${base}.webp`);
 
   const srcStat = await fs.stat(srcPath);
-  process.stdout.write(`  ${file} (${fmtKB(srcStat.size)}) → `);
+  process.stdout.write(`  ${file} (${fmtKB(srcStat.size)}) → ${base}.webp `);
 
   const buf = await sharp(srcPath)
     .resize({ width: MAX_ICON_WIDTH, withoutEnlargement: true })
-    .jpeg({ mozjpeg: true, quality: JPEG_QUALITY })
+    .webp({ quality: WEBP_ICON_QUALITY })
     .toBuffer();
 
-  await fs.writeFile(srcPath, buf);
+  await fs.writeFile(dstPath, buf);
+  if (path.resolve(srcPath) !== path.resolve(dstPath)) {
+    await fs.unlink(srcPath);
+  }
   const ratio = ((1 - buf.length / srcStat.size) * 100).toFixed(0);
-  console.log(`${fmtKB(buf.length)} (-${ratio}%)`);
+  console.log(`(${fmtKB(buf.length)}, -${ratio}%)`);
 }
 
 console.log("\n=== 完了 ===");

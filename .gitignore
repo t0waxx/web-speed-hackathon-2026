@@ -216,6 +216,12 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/node,macos,linux,windows
 
+### Terraform（ローカル用の変数・状態はコミットしない） ###
+terraform/terraform.tfvars
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform/
+
 # Upload files (directories kept via .gitkeep)
 application/upload/**
 !application/upload/**/

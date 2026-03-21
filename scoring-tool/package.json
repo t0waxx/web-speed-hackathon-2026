@@ -9,7 +9,7 @@
     "format": "bun run format:oxlint && bun run format:oxfmt",
     "format:oxlint": "oxlint --fix",
     "format:oxfmt": "oxfmt",
-    "start": "tsx ./src/index.ts"
+    "start": "bun ./src/index.ts"
   },
   "dependencies": {
     "@actions/artifact": "2.3.2",

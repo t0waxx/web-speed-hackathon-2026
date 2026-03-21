@@ -110,7 +110,7 @@ const EXISTING_SOUNDS = [
   { id: "93b848fe-24c8-4597-a515-463a910f6ceb", title: "Midnight Jazz", artist: "Blue Note" },
 ];
 
-// public/images/profiles/*.jpg (30 files)
+// public/images/profiles/*.webp（optimize-assets 後。開発初期は *.jpg でも可）
 const EXISTING_PROFILE_IMAGE_IDS = [
   "09d52cbb-28a2-4413-b220-1f8c9e80a440",
   "0aba06a6-1b56-4ebd-8218-951aaba173af",

@@ -19,14 +19,15 @@ directMessageRouter.get("/dm", async (req, res) => {
   const sequelize = DirectMessage.sequelize!;
   // SQLite 用の識別子クォート（Sequelize インスタンスの quoteIdentifier は型定義に無いためローカルで行う）
   const dmTable = `"${DirectMessage.tableName}"`;
-  const convTable = `"${DirectMessageConversation.tableName}"`;
+  // Sequelize aliases the table using the model name (without trailing "s")
+  const convAlias = `"${DirectMessageConversation.name}"`;
 
   // メッセージが1件以上ある会話のみ（messages を全件ロードしない）
   const conversations = await DirectMessageConversation.findAll({
     where: {
       [Op.and]: [
         { [Op.or]: [{ initiatorId: req.session.userId }, { memberId: req.session.userId }] },
-        literal(`EXISTS (SELECT 1 FROM ${dmTable} AS dm WHERE dm.conversationId = ${convTable}.id)`),
+        literal(`EXISTS (SELECT 1 FROM ${dmTable} AS dm WHERE dm.conversationId = ${convAlias}.id)`),
       ],
     },
   });

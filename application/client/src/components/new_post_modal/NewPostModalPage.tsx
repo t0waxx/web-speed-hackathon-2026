@@ -1,5 +1,5 @@
 import { MagickFormat } from "@imagemagick/magick-wasm";
-import { ChangeEventHandler, FormEventHandler, useCallback, useState } from "react";
+import { ChangeEventHandler, FormEventHandler, useCallback, useEffect, useRef, useState } from "react";
 
 import { FontAwesomeIcon } from "@web-speed-hackathon-2026/client/src/components/foundation/FontAwesomeIcon";
 import { ModalErrorMessage } from "@web-speed-hackathon-2026/client/src/components/modal/ModalErrorMessage";
@@ -33,6 +33,21 @@ export const NewPostModalPage = ({ id, hasError, isLoading, onResetError, onSubm
     sound: undefined,
     text: "",
   });
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const handleInput = () => {
+      setParams((p) => ({ ...p, text: el.value }));
+    };
+    el.addEventListener("input", handleInput);
+    el.addEventListener("change", handleInput);
+    return () => {
+      el.removeEventListener("input", handleInput);
+      el.removeEventListener("change", handleInput);
+    };
+  }, []);
 
   const [hasFileError, setHasFileError] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
@@ -70,7 +85,11 @@ export const NewPostModalPage = ({ id, hasError, isLoading, onResetError, onSubm
 
           setIsConverting(false);
         })
-        .catch(console.error);
+        .catch((err) => {
+          console.error(err);
+          setIsConverting(false);
+          setHasFileError(true);
+        });
     }
   }, []);
 
@@ -136,6 +155,7 @@ export const NewPostModalPage = ({ id, hasError, isLoading, onResetError, onSubm
       </h2>
 
       <textarea
+        ref={textareaRef}
         className="border-cax-border placeholder-cax-text-subtle focus:outline-cax-brand w-full resize-none rounded-xl border px-3 py-2 focus:outline-2 focus:outline-offset-2"
         rows={4}
         onChange={handleChangeText}

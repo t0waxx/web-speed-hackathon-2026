@@ -7,13 +7,15 @@ import { promisify } from "node:util";
 import type { RequestHandler } from "express";
 import sharp from "sharp";
 
-import { MAX_ICON_WIDTH } from "@web-speed-hackathon-2026/server/src/constants/imageOptimization";
+import {
+  MAX_ICON_WIDTH,
+  WEBP_ICON_QUALITY,
+} from "@web-speed-hackathon-2026/server/src/constants/imageOptimization";
 
 const execFileAsync = promisify(execFile);
 
 const MAX_IMAGE_WIDTH = 1200;
 const JPEG_QUALITY = 75;
-const WEBP_QUALITY = 80;
 const MAX_GIF_WIDTH = 480;
 
 // プロフィール画像・アイコンのパスパターン
@@ -24,7 +26,7 @@ const cache = new Map<string, Buffer>();
 
 async function getOptimizedImage(filePath: string, isIcon: boolean): Promise<Buffer | null> {
   const ext = path.extname(filePath).toLowerCase();
-  if (![".jpg", ".jpeg", ".png"].includes(ext)) return null;
+  if (![".jpg", ".jpeg", ".png", ".webp"].includes(ext)) return null;
 
   const cacheKey = `${isIcon ? "icon" : "img"}:${filePath}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey)!;
@@ -39,7 +41,7 @@ async function getOptimizedImage(filePath: string, isIcon: boolean): Promise<Buf
     const optimized = isIcon
       ? await sharp(filePath)
           .resize({ width: MAX_ICON_WIDTH, withoutEnlargement: true })
-          .webp({ quality: WEBP_QUALITY })
+          .webp({ quality: WEBP_ICON_QUALITY })
           .toBuffer()
       : await sharp(filePath)
           .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
@@ -108,14 +110,15 @@ export function createImageOptimizeMiddleware(basePaths: string[]): RequestHandl
     const urlPath = req.path;
     const ext = path.extname(urlPath).toLowerCase();
 
-    if ([".jpg", ".jpeg", ".png"].includes(ext)) {
+    if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
       const isIcon = ICON_PATH_RE.test(urlPath);
       for (const base of basePaths) {
         const filePath = path.join(base, urlPath);
         const optimized = await getOptimizedImage(filePath, isIcon);
         if (optimized == null) continue;
 
-        res.setHeader("Content-Type", isIcon ? "image/webp" : "image/jpeg");
+        const contentType = isIcon ? "image/webp" : "image/jpeg";
+        res.setHeader("Content-Type", contentType);
         res.setHeader("Content-Length", optimized.length);
         res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
         req.method === "HEAD" ? res.end() : res.end(optimized);

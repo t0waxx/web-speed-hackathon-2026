@@ -5,6 +5,8 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
+import bcrypt from "bcrypt";
+
 import {
   Comment,
   DirectMessage,
@@ -98,7 +100,13 @@ export async function insertSeeds(sequelize: Sequelize) {
       await Sound.bulkCreate(batch, { transaction });
     });
     await readJsonlFileBatched<UserSeed>("users.jsonl", async (batch) => {
-      await User.bulkCreate(batch, { transaction });
+      const hashedBatch = await Promise.all(
+        batch.map(async (user) => ({
+          ...user,
+          password: await bcrypt.hash(user.password, 8),
+        })),
+      );
+      await User.bulkCreate(hashedBatch, { transaction });
     });
     await readJsonlFileBatched<PostSeed>("posts.jsonl", async (batch) => {
       await Post.bulkCreate(batch, { transaction });

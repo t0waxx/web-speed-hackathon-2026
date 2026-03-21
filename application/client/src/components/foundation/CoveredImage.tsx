@@ -54,9 +54,24 @@ export const CoveredImage = ({ src, eager = false }: Props) => {
   }, [data]);
 
   const alt = useMemo(() => {
-    const exif = data != null ? load(Array.from(new Uint8Array(data)).map((b) => String.fromCharCode(b)).join("")) : null;
-    const raw = exif?.["0th"]?.[ImageIFD.ImageDescription];
-    return raw != null ? new TextDecoder().decode(Uint8Array.from(raw as string, (c) => c.charCodeAt(0))) : "";
+    if (data == null) return "";
+    const bytes = new Uint8Array(data);
+    // JPEG + APP1 (EXIF) の確認: SOI(FF D8) + APP1 marker(FF E1)
+    if (bytes.length < 6 || bytes[0] !== 0xFF || bytes[1] !== 0xD8 || bytes[2] !== 0xFF || bytes[3] !== 0xE1) {
+      return "";
+    }
+    // APP1 セグメント長（2バイト big-endian、長さフィールド自身を含む）
+    const app1Length = (bytes[4] << 8) | bytes[5];
+    // SOI(2) + marker(2) + app1Length バイトだけを変換（画像全体ではなく先頭数KBのみ）
+    const sliceEnd = Math.min(4 + app1Length, bytes.length);
+    const binary = Array.from(bytes.subarray(0, sliceEnd), (b) => String.fromCharCode(b)).join("");
+    try {
+      const exif = load(binary);
+      const raw = exif?.["0th"]?.[ImageIFD.ImageDescription];
+      return raw != null ? new TextDecoder().decode(Uint8Array.from(raw as string, (c) => c.charCodeAt(0))) : "";
+    } catch {
+      return "";
+    }
   }, [data]);
 
   const blobUrl = useMemo(() => {

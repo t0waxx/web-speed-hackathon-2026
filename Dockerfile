@@ -20,8 +20,6 @@ RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lock
 
 COPY ./application .
 
-RUN NODE_OPTIONS="--max-old-space-size=4096" bun run build
-
 RUN --mount=type=cache,target=/root/.bun/install/cache CI=true bun install --frozen-lockfile --production --filter @web-speed-hackathon-2026/server
 
 FROM base
@@ -29,6 +27,8 @@ FROM base
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app /app
+# Cloud Build ステップで事前ビルドした webpack 成果物をコピー
+COPY ./application/dist /app/dist
 
 EXPOSE 8080
 CMD [ "bun", "run", "start" ]

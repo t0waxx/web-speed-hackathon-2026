@@ -62,6 +62,7 @@ export function initPost(sequelize: Sequelize) {
         order: [
           ["id", "DESC"],
           ["images", "createdAt", "ASC"],
+          ["images", "id", "ASC"],
         ],
       },
     },

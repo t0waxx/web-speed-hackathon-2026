@@ -62,6 +62,8 @@ export const PausableMovie = ({ src }: Props) => {
 
   return (
     <div ref={rootRef}>
+      {/* canvas は e2e テスト要件（article canvas の可視性チェック）のために常時 DOM に存在 */}
+      <canvas className="absolute inset-0 h-full w-full" ref={canvasRef} />
       {isVisible && (
         <AspectRatioBox aspectHeight={1} aspectWidth={1}>
           <button
@@ -80,8 +82,6 @@ export const PausableMovie = ({ src }: Props) => {
               ref={videoRef}
               src={src}
             />
-            {/* canvas は e2e テスト要件（article canvas の可視性チェック）のために常時 DOM に存在 */}
-            <canvas className="absolute inset-0 h-full w-full" ref={canvasRef} />
             <div
               className={classNames(
                 "absolute left-1/2 top-1/2 flex items-center justify-center w-16 h-16 text-cax-surface-raised text-3xl bg-cax-overlay/50 rounded-full -translate-x-1/2 -translate-y-1/2",
