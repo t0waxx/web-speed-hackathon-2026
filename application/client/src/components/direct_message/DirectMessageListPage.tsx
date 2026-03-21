@@ -1,3 +1,4 @@
+import moment from "moment";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@web-speed-hackathon-2026/client/src/components/foundation/Button";
@@ -96,10 +97,7 @@ export const DirectMessageListPage = ({ activeUser, newDmModalId }: Props) => {
                             className="text-cax-text-subtle text-xs"
                             dateTime={lastMessage.createdAt}
                           >
-                            {new Intl.RelativeTimeFormat("ja", { numeric: "auto" }).format(
-                              -Math.round((Date.now() - new Date(lastMessage.createdAt).getTime()) / 60000),
-                              "minute",
-                            )}
+                            {moment(lastMessage.createdAt).locale("ja").fromNow()}
                           </time>
                         )}
                       </div>
