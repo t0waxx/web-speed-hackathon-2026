@@ -18,8 +18,8 @@ steps:
     args:
       - "-c"
       - |
-        TAIL=$(ls -d node_modules/.bun/tailwindcss@*/node_modules/tailwindcss 2>/dev/null | head -1)
-        [ -n "$TAIL" ] && ln -sfn "$TAIL" node_modules/tailwindcss && echo "=== tailwindcss → $TAIL ===" || echo "=== tailwindcss not found in .bun ==="
+        TAIL=$$(ls -d node_modules/.bun/tailwindcss@*/node_modules/tailwindcss 2>/dev/null | head -1)
+        [ -n "$$TAIL" ] && ln -sfn "$$TAIL" node_modules/tailwindcss && echo "=== tailwindcss linked ===" || echo "=== tailwindcss not found in .bun ==="
         cd client
         NODE_ENV=development NODE_OPTIONS="--max-old-space-size=4096" node node_modules/webpack-cli/bin/cli.js
         test -f ../dist/index.html && echo "=== dist OK ===" || (echo "=== dist MISSING ===" && exit 1)
