@@ -11,12 +11,14 @@ steps:
     args: ["install", "--frozen-lockfile"]
 
   # Step 2: Node.js で webpack バンドルをビルド（bun の node シムは webpack-cli と非互換）
+  # npm install で tailwindcss 等を Node.js から解決できるようにしてから webpack を実行する
   - name: "node:24"
     dir: "application/client"
     entrypoint: "sh"
     args:
       - "-c"
       - |
+        npm install --legacy-peer-deps --prefer-offline 2>/dev/null || npm install --legacy-peer-deps
         NODE_ENV=development NODE_OPTIONS="--max-old-space-size=4096" node node_modules/webpack-cli/bin/cli.js
         test -f ../dist/index.html && echo "=== dist OK ===" || (echo "=== dist MISSING ===" && exit 1)
 
